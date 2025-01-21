@@ -1,0 +1,232 @@
+<template>
+  <div class="promotions-container">
+    <el-card>
+      <div slot="header" class="clearfix">
+        <span>促销活动管理</span>
+        <el-button style="float: right; padding: 3px 0" type="text" @click="handleAdd">添加活动</el-button>
+      </div>
+
+      <el-table :data="promotions" style="width: 100%">
+        <el-table-column prop="id" label="ID" width="80"></el-table-column>
+        <el-table-column prop="name" label="活动名称" width="150"></el-table-column>
+        <el-table-column prop="type" label="活动类型" width="120">
+          <template slot-scope="scope">
+            <el-tag :type="getPromotionTypeTag(scope.row.type)">
+              {{ getPromotionTypeText(scope.row.type) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="discount" label="优惠" width="120">
+          <template slot-scope="scope">
+            {{ formatDiscount(scope.row) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="startTime" label="开始时间" width="180"></el-table-column>
+        <el-table-column prop="endTime" label="结束时间" width="180"></el-table-column>
+        <el-table-column prop="status" label="状态" width="100">
+          <template slot-scope="scope">
+            <el-tag :type="scope.row.status === 'active' ? 'success' : 'info'">
+              {{ scope.row.status === 'active' ? '进行中' : '已结束' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="200">
+          <template slot-scope="scope">
+            <el-button size="mini" @click="handleEdit(scope.row)">编辑</el-button>
+            <el-button size="mini" type="danger" @click="handleDelete(scope.row)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
+
+    <!-- 添加/编辑促销活动对话框 -->
+    <el-dialog :title="dialogTitle" :visible.sync="dialogVisible">
+      <el-form :model="promotionForm" :rules="rules" ref="promotionForm" label-width="100px">
+        <el-form-item label="活动名称" prop="name">
+          <el-input v-model="promotionForm.name"></el-input>
+        </el-form-item>
+        <el-form-item label="活动类型" prop="type">
+          <el-select v-model="promotionForm.type" placeholder="请选择活动类型">
+            <el-option label="折扣" value="discount"></el-option>
+            <el-option label="满减" value="reduction"></el-option>
+            <el-option label="买赠" value="gift"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item 
+          :label="promotionForm.type === 'discount' ? '折扣率' : '优惠金额'" 
+          prop="discountValue"
+          v-if="promotionForm.type === 'discount' || promotionForm.type === 'reduction'">
+          <el-input-number 
+            v-model="promotionForm.discountValue"
+            :min="promotionForm.type === 'discount' ? 0.1 : 0"
+            :max="promotionForm.type === 'discount' ? 0.99 : 1000"
+            :step="promotionForm.type === 'discount' ? 0.1 : 1"
+            :precision="promotionForm.type === 'discount' ? 2 : 0">
+          </el-input-number>
+          <span v-if="promotionForm.type === 'discount'">折</span>
+          <span v-else>元</span>
+        </el-form-item>
+        <el-form-item label="起始金额" prop="minAmount" v-if="promotionForm.type === 'reduction'">
+          <el-input-number v-model="promotionForm.minAmount" :min="0" :step="1"></el-input-number>
+        </el-form-item>
+        <el-form-item label="活动时间" prop="timeRange">
+          <el-date-picker
+            v-model="promotionForm.timeRange"
+            type="datetimerange"
+            range-separator="至"
+            start-placeholder="开始时间"
+            end-placeholder="结束时间">
+          </el-date-picker>
+        </el-form-item>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="dialogVisible = false">取 消</el-button>
+        <el-button type="primary" @click="submitForm">确 定</el-button>
+      </div>
+    </el-dialog>
+  </div>
+</template>
+
+<script>
+export default {
+  name: 'PromotionManagement',
+  data() {
+    return {
+      promotions: [],
+      dialogVisible: false,
+      dialogTitle: '添加活动',
+      promotionForm: {
+        name: '',
+        type: 'discount',
+        discountValue: 0,
+        minAmount: 0,
+        timeRange: [],
+        status: 'active'
+      },
+      rules: {
+        name: [
+          { required: true, message: '请输入活动名称', trigger: 'blur' },
+          { min: 2, max: 50, message: '长度在 2 到 50 个字符', trigger: 'blur' }
+        ],
+        type: [
+          { required: true, message: '请选择活动类型', trigger: 'change' }
+        ],
+        discountValue: [
+          { required: true, message: '请输入优惠值', trigger: 'blur' }
+        ],
+        timeRange: [
+          { required: true, message: '请选择活动时间', trigger: 'change' }
+        ]
+      }
+    }
+  },
+  created() {
+    this.fetchPromotions()
+  },
+  methods: {
+    async fetchPromotions() {
+      // 模拟数据
+      this.promotions = [
+        {
+          id: 1,
+          name: '新年特惠',
+          type: 'discount',
+          discountValue: 0.8,
+          startTime: '2024-01-21 00:00:00',
+          endTime: '2024-02-21 23:59:59',
+          status: 'active'
+        },
+        {
+          id: 2,
+          name: '满30减5',
+          type: 'reduction',
+          discountValue: 5,
+          minAmount: 30,
+          startTime: '2024-01-21 00:00:00',
+          endTime: '2024-01-28 23:59:59',
+          status: 'active'
+        }
+      ]
+    },
+    getPromotionTypeTag(type) {
+      const tags = {
+        discount: 'primary',
+        reduction: 'success',
+        gift: 'warning'
+      }
+      return tags[type]
+    },
+    getPromotionTypeText(type) {
+      const texts = {
+        discount: '折扣',
+        reduction: '满减',
+        gift: '买赠'
+      }
+      return texts[type]
+    },
+    formatDiscount(promotion) {
+      if (promotion.type === 'discount') {
+        return `${(promotion.discountValue * 10).toFixed(1)}折`
+      } else if (promotion.type === 'reduction') {
+        return `满${promotion.minAmount}减${promotion.discountValue}`
+      }
+      return '买赠活动'
+    },
+    handleAdd() {
+      this.dialogTitle = '添加活动'
+      this.promotionForm = {
+        name: '',
+        type: 'discount',
+        discountValue: 0,
+        minAmount: 0,
+        timeRange: [],
+        status: 'active'
+      }
+      this.dialogVisible = true
+    },
+    handleEdit(row) {
+      this.dialogTitle = '编辑活动'
+      this.promotionForm = {
+        ...row,
+        timeRange: [new Date(row.startTime), new Date(row.endTime)]
+      }
+      this.dialogVisible = true
+    },
+    handleDelete(row) {
+      this.$confirm('确认删除该活动?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        // 实现删除逻辑
+        const index = this.promotions.findIndex(item => item.id === row.id)
+        if (index > -1) {
+          this.promotions.splice(index, 1)
+        }
+        this.$message({
+          type: 'success',
+          message: '删除成功!'
+        })
+      }).catch(() => {})
+    },
+    submitForm() {
+      this.$refs.promotionForm.validate((valid) => {
+        if (valid) {
+          // 实现提交逻辑
+          this.$message({
+            type: 'success',
+            message: '保存成功!'
+          })
+          this.dialogVisible = false
+        }
+      })
+    }
+  }
+}
+</script>
+
+<style scoped>
+.promotions-container {
+  padding: 20px;
+}
+</style> 

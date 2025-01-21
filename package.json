@@ -1,0 +1,37 @@
+{
+  "name": "drinks",
+  "version": "1.0.0",
+  "description": "饮料贩卖机后台管理系统",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .gitignore"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/whr810012/drinks.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/whr810012/drinks/issues"
+  },
+  "homepage": "https://github.com/whr810012/drinks#readme",
+  "dependencies": {
+    "axios": "^1.6.5",
+    "echarts": "^5.6.0",
+    "element-ui": "^2.15.13",
+    "vue": "^2.7.16",
+    "vue-router": "^3.6.5",
+    "vuex": "^3.6.2"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue2": "^2.2.0",
+    "eslint": "^8.56.0",
+    "eslint-plugin-vue": "^9.19.2",
+    "vite": "^4.5.1"
+  }
+}
