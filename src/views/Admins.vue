@@ -528,6 +528,8 @@
 </style>
 
 <script>
+import { getAdminList, createAdmin, updateAdmin, deleteAdmin, updateAdminStatus } from '@/api/admin'
+
 export default {
   name: 'Admins',
   data() {
@@ -612,31 +614,8 @@ export default {
         ]
       },
 
-      // 模拟数据
-      admins: [
-        {
-          id: 1,
-          name: '系统管理员',
-          account: 'admin',
-          role: 'super',
-          phone: '13800138000',
-          email: 'admin@example.com',
-          avatar: '',
-          status: 'active',
-          lastLogin: new Date()
-        },
-        {
-          id: 2,
-          name: '测试管理员',
-          account: 'test',
-          role: 'normal',
-          phone: '13800138001',
-          email: 'test@example.com',
-          avatar: '',
-          status: 'active',
-          lastLogin: new Date()
-        }
-      ]
+      // 管理员列表
+      admins: []
     }
   },
   computed: {
@@ -670,8 +649,16 @@ export default {
     async refreshAdmins() {
       this.loading = true
       try {
-        // 这里调用获取管理员列表的API
-        await this.fetchAdmins()
+        const response = await getAdminList()
+        if (response.data.success) {
+          this.admins = response.data.data.map(admin => ({
+            ...admin,
+            account: admin.username,
+            role: admin.role === 'super_admin' ? 'super' : 'normal'
+          }))
+        } else {
+          throw new Error(response.data.message)
+        }
       } catch (error) {
         console.error('获取管理员列表失败:', error)
         this.$message.error('获取管理员列表失败')
@@ -693,6 +680,7 @@ export default {
     handleAdd() {
       this.dialogType = 'add'
       this.dialogVisible = true
+      this.resetForm()
     },
 
     // 编辑管理员
@@ -708,13 +696,15 @@ export default {
         type: 'warning'
       }).then(async () => {
         try {
-          // 这里调用删除管理员的API
-          await this.deleteAdmin(row.id)
+          const response = await deleteAdmin(row.id)
+          if (!response.data.success) {
+            throw new Error(response.data.message)
+          }
           this.$message.success('删除成功')
           this.refreshAdmins()
         } catch (error) {
           console.error('删除管理员失败:', error)
-          this.$message.error('删除管理员失败')
+          this.$message.error(error.message || '删除管理员失败')
         }
       }).catch(() => {})
     },
@@ -722,12 +712,14 @@ export default {
     // 更改管理员状态
     async handleStatusChange(row, status) {
       try {
-        // 这里调用更新管理员状态的API
-        await this.updateAdminStatus(row.id, status)
+        const response = await updateAdminStatus(row.id, status)
+        if (!response.data.success) {
+          throw new Error(response.data.message)
+        }
         this.$message.success('状态更新成功')
       } catch (error) {
         console.error('更新状态失败:', error)
-        this.$message.error('更新状态失败')
+        this.$message.error(error.message || '更新状态失败')
         row.status = status === 'active' ? 'disabled' : 'active' // 恢复状态
       }
     },
@@ -738,20 +730,33 @@ export default {
         if (valid) {
           this.submitting = true
           try {
+            const adminData = {
+              username: this.adminForm.account,
+              name: this.adminForm.name,
+              role: this.adminForm.role === 'super' ? 'super_admin' : 'normal_admin',
+              phone: this.adminForm.phone,
+              email: this.adminForm.email
+            }
+
             if (this.dialogType === 'add') {
-              // 这里调用新增管理员的API
-              await this.createAdmin(this.adminForm)
+              adminData.password = this.adminForm.password
+              const response = await createAdmin(adminData)
+              if (!response.data.success) {
+                throw new Error(response.data.message)
+              }
               this.$message.success('新增成功')
             } else {
-              // 这里调用更新管理员的API
-              await this.updateAdmin(this.adminForm)
+              const response = await updateAdmin(this.adminForm.id, adminData)
+              if (!response.data.success) {
+                throw new Error(response.data.message)
+              }
               this.$message.success('更新成功')
             }
             this.dialogVisible = false
             this.refreshAdmins()
           } catch (error) {
             console.error('保存管理员失败:', error)
-            this.$message.error('保存失败')
+            this.$message.error(error.message || '保存失败')
           } finally {
             this.submitting = false
           }
@@ -777,67 +782,6 @@ export default {
     // 格式化日期
     formatDate(date) {
       return new Date(date).toLocaleString()
-    },
-
-    // API 调用方法
-    async fetchAdmins() {
-      // 模拟API调用
-      return new Promise(resolve => {
-        setTimeout(() => {
-          resolve()
-        }, 500)
-      })
-    },
-
-    async createAdmin(data) {
-      // 模拟API调用
-      return new Promise(resolve => {
-        setTimeout(() => {
-          this.admins.push({
-            id: Date.now(),
-            ...data,
-            avatar: '',
-            lastLogin: new Date()
-          })
-          resolve()
-        }, 500)
-      })
-    },
-
-    async updateAdmin(data) {
-      // 模拟API调用
-      return new Promise(resolve => {
-        setTimeout(() => {
-          const index = this.admins.findIndex(admin => admin.id === data.id)
-          if (index !== -1) {
-            this.admins[index] = { ...this.admins[index], ...data }
-          }
-          resolve()
-        }, 500)
-      })
-    },
-
-    async deleteAdmin(id) {
-      // 模拟API调用
-      return new Promise(resolve => {
-        setTimeout(() => {
-          this.admins = this.admins.filter(admin => admin.id !== id)
-          resolve()
-        }, 500)
-      })
-    },
-
-    async updateAdminStatus(id, status) {
-      // 模拟API调用
-      return new Promise(resolve => {
-        setTimeout(() => {
-          const admin = this.admins.find(admin => admin.id === id)
-          if (admin) {
-            admin.status = status
-          }
-          resolve()
-        }, 500)
-      })
     }
   },
   created() {

@@ -494,6 +494,8 @@
 </style>
 
 <script>
+import { getOrders, getOrderStats, updateOrderStatus, processOrder, cancelOrder } from '@/api/order'
+
 export default {
   name: 'Orders',
   data() {
@@ -515,9 +517,20 @@ export default {
     filteredOrders() {
       return this.orders.filter(order => {
         const matchQuery = !this.searchQuery || 
-          order.orderId.toLowerCase().includes(this.searchQuery.toLowerCase())
+          order.orderId.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+          order.username.toLowerCase().includes(this.searchQuery.toLowerCase())
         const matchStatus = !this.statusFilter || order.status === this.statusFilter
-        return matchQuery && matchStatus
+        
+        // 日期范围筛选
+        let matchDate = true
+        if (this.dateRange && this.dateRange.length === 2) {
+          const orderDate = new Date(order.createTime)
+          const startDate = new Date(this.dateRange[0])
+          const endDate = new Date(this.dateRange[1])
+          matchDate = orderDate >= startDate && orderDate <= endDate
+        }
+        
+        return matchQuery && matchStatus && matchDate
       })
     }
   },
@@ -557,11 +570,32 @@ export default {
     async refreshOrders() {
       this.loading = true
       try {
-        // 调用获取订单列表的API
-        await this.fetchOrders()
+        // 获取订单统计数据
+        const statsRes = await getOrderStats()
+        if (statsRes.success) {
+          const { totalOrders, pendingOrders, completedOrders, todayIncome } = statsRes.data
+          this.totalOrders = totalOrders
+          this.pendingOrders = pendingOrders
+          this.completedOrders = completedOrders
+          this.todayIncome = todayIncome
+        }
+
+        // 获取订单列表
+        const params = {
+          page: this.currentPage,
+          pageSize: this.pageSize,
+          status: this.statusFilter,
+          search: this.searchQuery,
+          startDate: this.dateRange?.[0],
+          endDate: this.dateRange?.[1]
+        }
+        const ordersRes = await getOrders(params)
+        if (ordersRes.success) {
+          this.orders = ordersRes.data
+        }
       } catch (error) {
-        console.error('获取订单列表失败:', error)
-        this.$message.error('获取订单列表失败')
+        console.error('获取订单数据失败:', error)
+        this.$message.error('获取订单数据失败')
       }
       this.loading = false
     },
@@ -575,14 +609,15 @@ export default {
     },
     viewOrderDetails(order) {
       // 实现查看订单详情的逻辑
-      console.log('查看订单详情:', order)
+      this.$router.push(`/orders/${order.id}`)
     },
     async processOrder(order) {
       try {
-        // 实现处理订单的逻辑
-        await this.updateOrderStatus(order.id, 'completed')
-        this.$message.success('订单处理成功')
-        this.refreshOrders()
+        const res = await processOrder(order.id)
+        if (res.success) {
+          this.$message.success('订单处理成功')
+          this.refreshOrders()
+        }
       } catch (error) {
         console.error('处理订单失败:', error)
         this.$message.error('处理订单失败')
@@ -590,40 +625,15 @@ export default {
     },
     async cancelOrder(order) {
       try {
-        // 实现取消订单的逻辑
-        await this.updateOrderStatus(order.id, 'cancelled')
-        this.$message.success('订单已取消')
-        this.refreshOrders()
+        const res = await cancelOrder(order.id)
+        if (res.success) {
+          this.$message.success('订单已取消')
+          this.refreshOrders()
+        }
       } catch (error) {
         console.error('取消订单失败:', error)
         this.$message.error('取消订单失败')
       }
-    },
-    async fetchOrders() {
-      // 模拟获取订单数据
-      this.orders = [
-        {
-          orderId: 'ORD202403150001',
-          type: 'normal',
-          products: [
-            {
-              name: '可口可乐',
-              image: '/images/cola.jpg',
-              quantity: 2
-            }
-          ],
-          totalAmount: 10.00,
-          status: 'pending',
-          createTime: new Date()
-        },
-        // 添加更多测试数据...
-      ]
-      this.totalOrders = this.orders.length
-      this.pendingOrders = this.orders.filter(o => o.status === 'pending').length
-      this.completedOrders = this.orders.filter(o => o.status === 'completed').length
-      this.todayIncome = this.orders
-        .filter(o => o.status === 'completed')
-        .reduce((sum, o) => sum + o.totalAmount, 0)
     }
   },
   created() {

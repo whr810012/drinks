@@ -425,6 +425,7 @@ import {
   LegendComponent
 } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
+import { getOverviewStats, getSalesTrend, getCategoryDistribution, getHotProducts } from '@/api/analytics'
 
 echarts.use([
   TitleComponent,
@@ -442,88 +443,20 @@ export default {
     return {
       timeRange: 'week',
       rankingPeriod: 'today',
-      overviewCards: [
-        {
-          title: '总销售额',
-          value: '8,846',
-          prefix: '¥',
-          suffix: '',
-          trend: 12.5,
-          icon: 'el-icon-money',
-          class: 'total-sales'
-        },
-        {
-          title: '订单总量',
-          value: '1,286',
-          prefix: '',
-          suffix: '',
-          trend: 8.2,
-          icon: 'el-icon-s-order',
-          class: 'total-orders'
-        },
-        {
-          title: '平均客单价',
-          value: '6.88',
-          prefix: '¥',
-          suffix: '',
-          trend: -2.5,
-          icon: 'el-icon-price-tag',
-          class: 'avg-price'
-        },
-        {
-          title: '转化率',
-          value: '28.5',
-          prefix: '',
-          suffix: '%',
-          trend: 5.2,
-          icon: 'el-icon-data-analysis',
-          class: 'conversion-rate'
-        }
-      ],
-      hotProducts: [
-        {
-          name: '可口可乐',
-          image: '/images/cola.jpg',
-          sales: 286,
-          amount: 858.00,
-          percentage: 85
-        },
-        {
-          name: '百事可乐',
-          image: '/images/pepsi.jpg',
-          sales: 245,
-          amount: 735.00,
-          percentage: 72
-        },
-        {
-          name: '芬达',
-          image: '/images/fanta.jpg',
-          sales: 212,
-          amount: 636.00,
-          percentage: 65
-        },
-        {
-          name: '雪碧',
-          image: '/images/sprite.jpg',
-          sales: 198,
-          amount: 594.00,
-          percentage: 58
-        },
-        {
-          name: '美年达',
-          image: '/images/mirinda.jpg',
-          sales: 176,
-          amount: 528.00,
-          percentage: 52
-        }
-      ],
+      overviewCards: [],
+      hotProducts: [],
       salesChart: null,
-      categoryChart: null
+      categoryChart: null,
+      loading: {
+        overview: false,
+        sales: false,
+        category: false,
+        products: false
+      }
     }
   },
   mounted() {
-    this.initSalesChart()
-    this.initCategoryChart()
+    this.fetchData()
     
     // 响应式调整
     window.addEventListener('resize', this.handleResize)
@@ -538,8 +471,66 @@ export default {
     }
   },
   methods: {
-    initSalesChart() {
-      this.salesChart = echarts.init(this.$refs.salesChart)
+    async fetchData() {
+      await Promise.all([
+        this.fetchOverviewStats(),
+        this.fetchSalesTrend(),
+        this.fetchCategoryDistribution(),
+        this.fetchHotProducts()
+      ])
+    },
+    async fetchOverviewStats() {
+      try {
+        this.loading.overview = true
+        const { data } = await getOverviewStats()
+        this.overviewCards = data.overviewCards
+      } catch (error) {
+        this.$message.error('获取数据概览失败')
+        console.error(error)
+      } finally {
+        this.loading.overview = false
+      }
+    },
+    async fetchSalesTrend() {
+      try {
+        this.loading.sales = true
+        const { data } = await getSalesTrend({ timeRange: this.timeRange })
+        this.initSalesChart(data)
+      } catch (error) {
+        this.$message.error('获取销售趋势失败')
+        console.error(error)
+      } finally {
+        this.loading.sales = false
+      }
+    },
+    async fetchCategoryDistribution() {
+      try {
+        this.loading.category = true
+        const { data } = await getCategoryDistribution()
+        this.initCategoryChart(data)
+      } catch (error) {
+        this.$message.error('获取商品分类占比失败')
+        console.error(error)
+      } finally {
+        this.loading.category = false
+      }
+    },
+    async fetchHotProducts() {
+      try {
+        this.loading.products = true
+        const { data } = await getHotProducts({ rankingPeriod: this.rankingPeriod })
+        this.hotProducts = data
+      } catch (error) {
+        this.$message.error('获取热销商品排行失败')
+        console.error(error)
+      } finally {
+        this.loading.products = false
+      }
+    },
+    initSalesChart(data) {
+      if (!this.salesChart) {
+        this.salesChart = echarts.init(this.$refs.salesChart)
+      }
       
       const option = {
         tooltip: {
@@ -556,7 +547,7 @@ export default {
         },
         xAxis: {
           type: 'category',
-          data: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
+          data: data.map(item => item.date),
           axisLine: {
             lineStyle: {
               color: '#909399'
@@ -584,7 +575,7 @@ export default {
           {
             name: '销售额',
             type: 'bar',
-            data: [820, 932, 901, 934, 1290, 1330, 1320],
+            data: data.map(item => item.amount),
             itemStyle: {
               borderRadius: [4, 4, 0, 0],
               color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
@@ -606,12 +597,15 @@ export default {
       
       this.salesChart.setOption(option)
     },
-    initCategoryChart() {
-      this.categoryChart = echarts.init(this.$refs.categoryChart)
+    initCategoryChart(data) {
+      if (!this.categoryChart) {
+        this.categoryChart = echarts.init(this.$refs.categoryChart)
+      }
       
       const option = {
         tooltip: {
-          trigger: 'item'
+          trigger: 'item',
+          formatter: '{b}: {c} ({d}%)'
         },
         legend: {
           orient: 'vertical',
@@ -643,13 +637,10 @@ export default {
             labelLine: {
               show: false
             },
-            data: [
-              { value: 1048, name: '碳酸饮料' },
-              { value: 735, name: '果汁' },
-              { value: 580, name: '矿泉水' },
-              { value: 484, name: '功能饮料' },
-              { value: 300, name: '其他' }
-            ]
+            data: data.map(item => ({
+              name: item.category,
+              value: item.total_sales
+            }))
           }
         ]
       }
@@ -676,12 +667,10 @@ export default {
   },
   watch: {
     timeRange() {
-      // 根据时间范围更新销售趋势图表数据
-      // 这里可以调用API获取新数据
+      this.fetchSalesTrend()
     },
     rankingPeriod() {
-      // 根据时间周期更新热销商品排行数据
-      // 这里可以调用API获取新数据
+      this.fetchHotProducts()
     }
   }
 }

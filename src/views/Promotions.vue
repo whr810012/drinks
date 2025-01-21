@@ -6,7 +6,7 @@
         <el-button style="float: right; padding: 3px 0" type="text" @click="handleAdd">添加活动</el-button>
       </div>
 
-      <el-table :data="promotions" style="width: 100%">
+      <el-table :data="promotions" style="width: 100%" v-loading="loading">
         <el-table-column prop="id" label="ID" width="80"></el-table-column>
         <el-table-column prop="name" label="活动名称" width="150"></el-table-column>
         <el-table-column prop="type" label="活动类型" width="120">
@@ -88,11 +88,14 @@
 </template>
 
 <script>
+import { getPromotions, addPromotion, updatePromotion, deletePromotion } from '@/api/promotion';
+
 export default {
   name: 'PromotionManagement',
   data() {
     return {
       promotions: [],
+      loading: false,
       dialogVisible: false,
       dialogTitle: '添加活动',
       promotionForm: {
@@ -118,62 +121,60 @@ export default {
           { required: true, message: '请选择活动时间', trigger: 'change' }
         ]
       }
-    }
+    };
   },
   created() {
-    this.fetchPromotions()
+    this.fetchPromotions();
   },
   methods: {
     async fetchPromotions() {
-      // 模拟数据
-      this.promotions = [
-        {
-          id: 1,
-          name: '新年特惠',
-          type: 'discount',
-          discountValue: 0.8,
-          startTime: '2024-01-21 00:00:00',
-          endTime: '2024-02-21 23:59:59',
-          status: 'active'
-        },
-        {
-          id: 2,
-          name: '满30减5',
-          type: 'reduction',
-          discountValue: 5,
-          minAmount: 30,
-          startTime: '2024-01-21 00:00:00',
-          endTime: '2024-01-28 23:59:59',
-          status: 'active'
+      try {
+        this.loading = true;
+        const response = await getPromotions();
+        if (response.success) {
+          this.promotions = response.data.map(item => ({
+            ...item,
+            startTime: item.start_time,
+            endTime: item.end_time,
+            discountValue: item.discount_value,
+            minAmount: item.min_amount
+          }));
+        } else {
+          this.$message.error(response.message || '获取促销活动列表失败');
         }
-      ]
+      } catch (error) {
+        console.error('获取促销活动列表错误:', error);
+        this.$message.error('获取促销活动列表失败');
+      } finally {
+        this.loading = false;
+      }
     },
     getPromotionTypeTag(type) {
       const tags = {
         discount: 'primary',
         reduction: 'success',
         gift: 'warning'
-      }
-      return tags[type]
+      };
+      return tags[type];
     },
     getPromotionTypeText(type) {
       const texts = {
         discount: '折扣',
         reduction: '满减',
         gift: '买赠'
-      }
-      return texts[type]
+      };
+      return texts[type];
     },
     formatDiscount(promotion) {
       if (promotion.type === 'discount') {
-        return `${(promotion.discountValue * 10).toFixed(1)}折`
+        return `${(promotion.discountValue * 10).toFixed(1)}折`;
       } else if (promotion.type === 'reduction') {
-        return `满${promotion.minAmount}减${promotion.discountValue}`
+        return `满${promotion.minAmount}减${promotion.discountValue}`;
       }
-      return '买赠活动'
+      return '买赠活动';
     },
     handleAdd() {
-      this.dialogTitle = '添加活动'
+      this.dialogTitle = '添加活动';
       this.promotionForm = {
         name: '',
         type: 'discount',
@@ -181,48 +182,80 @@ export default {
         minAmount: 0,
         timeRange: [],
         status: 'active'
-      }
-      this.dialogVisible = true
+      };
+      this.dialogVisible = true;
     },
     handleEdit(row) {
-      this.dialogTitle = '编辑活动'
+      this.dialogTitle = '编辑活动';
       this.promotionForm = {
-        ...row,
-        timeRange: [new Date(row.startTime), new Date(row.endTime)]
+        id: row.id,
+        name: row.name,
+        type: row.type,
+        discountValue: row.discount_value,
+        minAmount: row.min_amount,
+        timeRange: [row.start_time, row.end_time],
+        status: row.status
+      };
+      this.dialogVisible = true;
+    },
+    async handleDelete(row) {
+      try {
+        await this.$confirm('确认删除该活动?', '提示', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        });
+
+        const response = await deletePromotion(row.id);
+        if (response.success) {
+          this.$message.success('删除成功');
+          this.fetchPromotions();
+        } else {
+          this.$message.error(response.message || '删除失败');
+        }
+      } catch (error) {
+        if (error !== 'cancel') {
+          console.error('删除促销活动错误:', error);
+          this.$message.error('删除失败');
+        }
       }
-      this.dialogVisible = true
     },
-    handleDelete(row) {
-      this.$confirm('确认删除该活动?', '提示', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }).then(() => {
-        // 实现删除逻辑
-        const index = this.promotions.findIndex(item => item.id === row.id)
-        if (index > -1) {
-          this.promotions.splice(index, 1)
-        }
-        this.$message({
-          type: 'success',
-          message: '删除成功!'
-        })
-      }).catch(() => {})
-    },
-    submitForm() {
-      this.$refs.promotionForm.validate((valid) => {
+    async submitForm() {
+      this.$refs.promotionForm.validate(async (valid) => {
         if (valid) {
-          // 实现提交逻辑
-          this.$message({
-            type: 'success',
-            message: '保存成功!'
-          })
-          this.dialogVisible = false
+          try {
+            const formData = {
+              name: this.promotionForm.name,
+              type: this.promotionForm.type,
+              start_time: this.promotionForm.timeRange[0],
+              end_time: this.promotionForm.timeRange[1],
+              discount_value: this.promotionForm.type === 'discount' ? this.promotionForm.discountValue : null,
+              min_amount: this.promotionForm.type === 'reduction' ? this.promotionForm.minAmount : null
+            };
+
+            let response;
+            if (this.promotionForm.id) {
+              response = await updatePromotion(this.promotionForm.id, formData);
+            } else {
+              response = await addPromotion(formData);
+            }
+
+            if (response.success) {
+              this.$message.success(this.promotionForm.id ? '编辑成功' : '添加成功');
+              this.dialogVisible = false;
+              this.fetchPromotions();
+            } else {
+              this.$message.error(response.message || '操作失败');
+            }
+          } catch (error) {
+            console.error('保存促销活动错误:', error);
+            this.$message.error('操作失败');
+          }
         }
-      })
+      });
     }
   }
-}
+};
 </script>
 
 <style scoped>

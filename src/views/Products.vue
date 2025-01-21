@@ -186,11 +186,89 @@
         </el-pagination>
       </div>
     </el-card>
+
+    <!-- 商品编辑对话框 -->
+    <el-dialog
+      :title="currentProduct && currentProduct.id ? '编辑商品' : '添加商品'"
+      :visible.sync="dialogVisible"
+      width="50%"
+      @close="currentProduct = null">
+      <el-form
+        v-if="currentProduct"
+        :model="currentProduct"
+        :rules="formRules"
+        ref="productForm"
+        label-width="100px"
+        class="product-form">
+        <el-form-item label="商品名称" prop="name">
+          <el-input v-model="currentProduct.name" placeholder="请输入商品名称"></el-input>
+        </el-form-item>
+        
+        <el-form-item label="商品类别" prop="category">
+          <el-select v-model="currentProduct.category" placeholder="请选择商品类别" style="width: 100%">
+            <el-option label="碳酸饮料" value="碳酸饮料"></el-option>
+            <el-option label="果汁饮料" value="果汁饮料"></el-option>
+            <el-option label="茶饮料" value="茶饮料"></el-option>
+            <el-option label="矿泉水" value="矿泉水"></el-option>
+            <el-option label="功能饮料" value="功能饮料"></el-option>
+            <el-option label="咖啡饮料" value="咖啡饮料"></el-option>
+          </el-select>
+        </el-form-item>
+        
+        <el-form-item label="商品价格" prop="price">
+          <el-input-number 
+            v-model="currentProduct.price"
+            :precision="2"
+            :step="0.1"
+            :min="0"
+            style="width: 100%"
+            placeholder="请输入商品价格">
+          </el-input-number>
+        </el-form-item>
+        
+        <el-form-item label="库存数量" prop="stock">
+          <el-input-number
+            v-model="currentProduct.stock"
+            :min="0"
+            :step="1"
+            style="width: 100%"
+            placeholder="请输入库存数量">
+          </el-input-number>
+        </el-form-item>
+        
+        <el-form-item label="商品图片">
+          <el-upload
+            class="product-image-uploader"
+            action="/api/upload"
+            :show-file-list="false"
+            :on-success="handleImageSuccess"
+            :before-upload="beforeImageUpload">
+            <img v-if="currentProduct.image_url" :src="currentProduct.image_url" class="product-image">
+            <i v-else class="el-icon-plus product-image-uploader-icon"></i>
+          </el-upload>
+        </el-form-item>
+        
+        <el-form-item label="商品描述">
+          <el-input
+            type="textarea"
+            v-model="currentProduct.description"
+            :rows="4"
+            placeholder="请输入商品描述">
+          </el-input>
+        </el-form-item>
+      </el-form>
+      
+      <span slot="footer" class="dialog-footer">
+        <el-button @click="dialogVisible = false">取 消</el-button>
+        <el-button type="primary" @click="saveProduct">确 定</el-button>
+      </span>
+    </el-dialog>
   </div>
 </template>
 
 <script>
 import { mapGetters, mapActions } from 'vuex'
+import { getProducts, addProduct, updateProduct, updateProductStatus, uploadImage } from '@/api/product'
 
 export default {
   name: 'Products',
@@ -203,16 +281,27 @@ export default {
       currentPage: 1,
       pageSize: 10,
       defaultImage: 'https://shadow.elemecdn.com/app/element/hamburger.9cf7b091-55e9-11e9-a976-7f4d0b07eef6.png',
-      // 模拟数据
-      onSaleCount: 35,
-      lowStockCount: 5,
-      totalSales: '25,890.00'
+      products: [],
+      dialogVisible: false,
+      currentProduct: null,
+      formRules: {
+        name: [{ required: true, message: '请输入商品名称', trigger: 'blur' }],
+        category: [{ required: true, message: '请选择商品类别', trigger: 'change' }],
+        price: [{ required: true, message: '请输入商品价格', trigger: 'blur' }],
+        stock: [{ required: true, message: '请输入库存数量', trigger: 'blur' }]
+      }
     }
   },
   computed: {
     ...mapGetters(['getProducts']),
-    products() {
-      return this.getProducts
+    onSaleCount() {
+      return this.products.filter(p => p.status === 'active').length
+    },
+    lowStockCount() {
+      return this.products.filter(p => p.stock <= 10).length
+    },
+    totalSales() {
+      return this.products.reduce((sum, p) => sum + (p.price * p.sales_count), 0).toFixed(2)
     },
     filteredProducts() {
       return this.products.filter(product => {
@@ -226,31 +315,121 @@ export default {
   },
   methods: {
     ...mapActions(['fetchProducts']),
+    // 获取商品列表
+    async fetchProducts() {
+      try {
+        this.loading = true
+        const response = await getProducts()
+        if (response.success) {
+          this.products = response.data
+        }
+      } catch (error) {
+        this.$message.error('获取商品列表失败')
+        console.error(error)
+      } finally {
+        this.loading = false
+      }
+    },
+
+    // 添加商品
     handleAdd() {
-      this.$message.success('点击了添加商品')
+      this.currentProduct = {
+        name: '',
+        category: '',
+        price: '',
+        stock: '',
+        description: '',
+        image_url: ''
+      }
+      this.dialogVisible = true
     },
+
+    // 编辑商品
     handleEdit(row) {
-      this.$message.success(`编辑商品: ${row.name}`)
+      this.currentProduct = { ...row }
+      this.dialogVisible = true
     },
-    handleToggleStatus(row) {
-      this.$message.success(`${row.status === 'active' ? '下架' : '上架'}商品: ${row.name}`)
+
+    // 保存商品（添加或更新）
+    async saveProduct() {
+      try {
+        this.$refs.productForm.validate(async valid => {
+          if (!valid) {
+            return false
+          }
+
+          const isEdit = !!this.currentProduct.id
+          const response = isEdit 
+            ? await updateProduct(this.currentProduct.id, this.currentProduct)
+            : await addProduct(this.currentProduct)
+
+          if (response.success) {
+            this.$message.success(isEdit ? '商品更新成功' : '商品添加成功')
+            this.dialogVisible = false
+            this.fetchProducts()
+          }
+        })
+      } catch (error) {
+        this.$message.error(error.message || '操作失败')
+      }
     },
+
+    // 切换商品状态
+    async handleToggleStatus(row) {
+      try {
+        const newStatus = row.status === 'active' ? 'inactive' : 'active'
+        const response = await updateProductStatus(row.id, newStatus)
+
+        if (response.success) {
+          this.$message.success(response.message)
+          this.fetchProducts()
+        }
+      } catch (error) {
+        this.$message.error(error.message || '操作失败')
+      }
+    },
+
     handleSizeChange(val) {
       this.pageSize = val
     },
+    
     handleCurrentChange(val) {
       this.currentPage = val
     },
+    
     getStockStatus(stock) {
       if (stock <= 10) return 'exception'
       if (stock <= 30) return 'warning'
       return 'success'
+    },
+
+    // 处理图片上传成功
+    async handleImageSuccess(response) {
+      if (response.success) {
+        this.currentProduct.image_url = response.data.url
+      } else {
+        this.$message.error('图片上传失败')
+      }
+    },
+
+    // 图片上传前的验证
+    beforeImageUpload(file) {
+      const isImage = file.type.startsWith('image/')
+      const isLt2M = file.size / 1024 / 1024 < 2
+
+      if (!isImage) {
+        this.$message.error('只能上传图片文件!')
+        return false
+      }
+      if (!isLt2M) {
+        this.$message.error('图片大小不能超过 2MB!')
+        return false
+      }
+      return true
     }
   },
   async created() {
-    this.loading = true
     await this.fetchProducts()
-    this.loading = false
   }
 }
 </script>
@@ -731,5 +910,62 @@ export default {
 
 .el-table__fixed-right-patch {
   background-color: #f5f7fa;
+}
+
+/* 商品表单样式 */
+.product-form {
+  padding: 20px;
+}
+
+.product-image-uploader {
+  border: 1px dashed #d9d9d9;
+  border-radius: 6px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  width: 178px;
+  height: 178px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.product-image-uploader:hover {
+  border-color: #409EFF;
+}
+
+.product-image-uploader-icon {
+  font-size: 28px;
+  color: #8c939d;
+  width: 178px;
+  height: 178px;
+  line-height: 178px;
+  text-align: center;
+}
+
+.product-image {
+  width: 178px;
+  height: 178px;
+  display: block;
+  object-fit: cover;
+}
+
+/* 对话框样式 */
+.el-dialog {
+  border-radius: 8px;
+}
+
+.el-dialog__header {
+  padding: 20px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.el-dialog__body {
+  padding: 30px 20px;
+}
+
+.el-dialog__footer {
+  padding: 20px;
+  border-top: 1px solid #ebeef5;
 }
 </style> 
