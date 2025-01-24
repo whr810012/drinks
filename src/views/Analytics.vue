@@ -79,7 +79,7 @@
           <template slot-scope="scope">
             <div class="product-info">
               <el-image
-                :src="scope.row.image"
+                :src="scope.row.image_url"
                 class="product-image"
                 fit="cover"
               >
@@ -91,7 +91,7 @@
                 <span class="product-name">{{ scope.row.name }}</span>
                 <div class="product-stats">
                   <span class="sales-count">销量 {{ scope.row.sales }}</span>
-                  <span class="sales-amount">¥{{ scope.row.amount }}</span>
+                  <span class="sales-amount">¥{{ Number(scope.row.amount).toFixed(2) }}</span>
                 </div>
               </div>
             </div>
@@ -101,11 +101,11 @@
           <template slot-scope="scope">
             <div class="sales-progress">
               <el-progress
-                :percentage="scope.row.percentage"
-                :color="getProgressColor(scope.row.percentage)"
+                :percentage="Number(scope.row.percentage)"
+                :color="getProgressColor(Number(scope.row.percentage))"
                 :show-text="false"
               ></el-progress>
-              <span class="progress-value">{{ scope.row.percentage }}%</span>
+              <span class="progress-value">{{ Number(scope.row.percentage).toFixed(2) }}%</span>
             </div>
           </template>
         </el-table-column>

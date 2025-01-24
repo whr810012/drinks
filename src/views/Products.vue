@@ -2,7 +2,7 @@
   <div class="products-container">
     <!-- 顶部统计卡片 -->
     <el-row :gutter="20" class="dashboard-cards">
-      <el-col :span="6">
+      <el-col :span="8">
         <el-card class="data-card total-products" shadow="hover">
           <div class="data-card-content">
             <div class="icon-wrapper">
@@ -15,7 +15,7 @@
           </div>
         </el-card>
       </el-col>
-      <el-col :span="6">
+      <el-col :span="8">
         <el-card class="data-card on-sale" shadow="hover">
           <div class="data-card-content">
             <div class="icon-wrapper">
@@ -28,7 +28,7 @@
           </div>
         </el-card>
       </el-col>
-      <el-col :span="6">
+      <el-col :span="8">
         <el-card class="data-card low-stock" shadow="hover">
           <div class="data-card-content">
             <div class="icon-wrapper">
@@ -37,19 +37,6 @@
             <div class="data-info">
               <div class="data-title">库存预警</div>
               <div class="data-value">{{ lowStockCount }}</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="data-card total-sales" shadow="hover">
-          <div class="data-card-content">
-            <div class="icon-wrapper">
-              <i class="el-icon-money"></i>
-            </div>
-            <div class="data-info">
-              <div class="data-title">总销售额</div>
-              <div class="data-value">¥{{ totalSales }}</div>
             </div>
           </div>
         </el-card>
@@ -81,10 +68,12 @@
             class="search-input"
           ></el-input>
           <el-select v-model="categoryFilter" placeholder="商品分类" clearable class="filter-select">
-            <el-option label="碳酸饮料" value="carbonated"></el-option>
-            <el-option label="果汁饮料" value="juice"></el-option>
-            <el-option label="茶饮料" value="tea"></el-option>
-            <el-option label="矿泉水" value="water"></el-option>
+            <el-option label="碳酸饮料" value="碳酸饮料"></el-option>
+            <el-option label="果汁饮料" value="果汁饮料"></el-option>
+            <el-option label="茶饮料" value="茶饮料"></el-option>
+            <el-option label="矿泉水" value="矿泉水"></el-option>
+            <el-option label="功能饮料" value="功能饮料"></el-option>
+            <el-option label="咖啡饮料" value="咖啡饮料"></el-option>
           </el-select>
         </div>
         <div class="toolbar-right">
@@ -105,34 +94,35 @@
           <template slot-scope="scope">
             <div class="product-info-cell">
               <el-image 
-                :src="scope.row.image || defaultImage" 
+                :src="scope.row.image_url || defaultImage" 
                 fit="cover"
-                class="product-image"
-              >
+                class="product-image">
                 <div slot="error" class="image-slot">
                   <i class="el-icon-picture-outline"></i>
                 </div>
               </el-image>
               <div class="product-details">
                 <span class="product-name">{{ scope.row.name }}</span>
-                <span class="product-category">{{ scope.row.category }}</span>
+                <div class="product-meta">
+                  <el-tag size="mini" type="info" effect="plain" class="product-category">
+                    {{ scope.row.category }}
+                  </el-tag>
+                  <span class="product-id">ID: {{ scope.row.id }}</span>
+                </div>
+                <span class="product-description">{{ scope.row.description }}</span>
               </div>
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="price" label="价格" width="120">
+        <el-table-column prop="price" label="价格" width="180">
           <template slot-scope="scope">
-            <span class="price">¥{{ scope.row.price.toFixed(2) }}</span>
+            <div class="price-column">
+              <span class="price">¥{{ scope.row.price.toFixed(2) }}</span>
+            </div>
           </template>
         </el-table-column>
         <el-table-column prop="stock" label="库存" width="120">
           <template slot-scope="scope">
-            <el-progress
-              :percentage="(scope.row.stock / 100) * 100"
-              :status="getStockStatus(scope.row.stock)"
-              :stroke-width="8"
-              :show-text="false"
-            ></el-progress>
             <span class="stock-text" :class="getStockStatus(scope.row.stock)">
               {{ scope.row.stock }}
             </span>
@@ -236,16 +226,28 @@
           </el-input-number>
         </el-form-item>
         
-        <el-form-item label="商品图片">
-          <el-upload
-            class="product-image-uploader"
-            action="/api/upload"
-            :show-file-list="false"
-            :on-success="handleImageSuccess"
-            :before-upload="beforeImageUpload">
-            <img v-if="currentProduct.image_url" :src="currentProduct.image_url" class="product-image">
-            <i v-else class="el-icon-plus product-image-uploader-icon"></i>
-          </el-upload>
+        <el-form-item label="商品图片" prop="image_url">
+          <el-input 
+            v-model="currentProduct.image_url" 
+            placeholder="请输入商品图片URL">
+            <template slot="append">
+              <el-popover
+                placement="right"
+                trigger="hover"
+                popper-class="image-preview-popover">
+                <el-image 
+                  v-if="currentProduct.image_url"
+                  :src="currentProduct.image_url"
+                  fit="contain"
+                  class="image-preview">
+                  <div slot="error" class="image-slot">
+                    <i class="el-icon-picture-outline"></i>
+                  </div>
+                </el-image>
+                <i class="el-icon-picture-outline-round" slot="reference"></i>
+              </el-popover>
+            </template>
+          </el-input>
         </el-form-item>
         
         <el-form-item label="商品描述">
@@ -268,7 +270,7 @@
 
 <script>
 import { mapGetters, mapActions } from 'vuex'
-import { getProducts, addProduct, updateProduct, updateProductStatus, uploadImage } from '@/api/product'
+import { getProducts, addProduct, updateProduct, updateProductStatus } from '@/api/product'
 
 export default {
   name: 'Products',
@@ -288,7 +290,8 @@ export default {
         name: [{ required: true, message: '请输入商品名称', trigger: 'blur' }],
         category: [{ required: true, message: '请选择商品类别', trigger: 'change' }],
         price: [{ required: true, message: '请输入商品价格', trigger: 'blur' }],
-        stock: [{ required: true, message: '请输入库存数量', trigger: 'blur' }]
+        stock: [{ required: true, message: '请输入库存数量', trigger: 'blur' }],
+        image_url: [{ required: false, message: '请输入商品图片URL', trigger: 'blur' }]
       }
     }
   },
@@ -299,9 +302,6 @@ export default {
     },
     lowStockCount() {
       return this.products.filter(p => p.stock <= 10).length
-    },
-    totalSales() {
-      return this.products.reduce((sum, p) => sum + (p.price * p.sales_count), 0).toFixed(2)
     },
     filteredProducts() {
       return this.products.filter(product => {
@@ -319,12 +319,13 @@ export default {
     async fetchProducts() {
       try {
         this.loading = true
-        const response = await getProducts()
-        if (response.success) {
-          this.products = response.data
+        const productsRes = await getProducts()
+        
+        if (productsRes.success) {
+          this.products = productsRes.data
         }
       } catch (error) {
-        this.$message.error('获取商品列表失败')
+        this.$message.error('获取数据失败')
         console.error(error)
       } finally {
         this.loading = false
@@ -402,31 +403,6 @@ export default {
       if (stock <= 30) return 'warning'
       return 'success'
     },
-
-    // 处理图片上传成功
-    async handleImageSuccess(response) {
-      if (response.success) {
-        this.currentProduct.image_url = response.data.url
-      } else {
-        this.$message.error('图片上传失败')
-      }
-    },
-
-    // 图片上传前的验证
-    beforeImageUpload(file) {
-      const isImage = file.type.startsWith('image/')
-      const isLt2M = file.size / 1024 / 1024 < 2
-
-      if (!isImage) {
-        this.$message.error('只能上传图片文件!')
-        return false
-      }
-      if (!isLt2M) {
-        this.$message.error('图片大小不能超过 2MB!')
-        return false
-      }
-      return true
-    }
   },
   async created() {
     await this.fetchProducts()
@@ -518,10 +494,6 @@ export default {
   background: linear-gradient(135deg, #E6A23C, #ebb563);
 }
 
-.total-sales .icon-wrapper {
-  background: linear-gradient(135deg, #F56C6C, #f78989);
-}
-
 /* 商品信息样式 */
 .product-info-cell {
   display: flex;
@@ -531,39 +503,63 @@ export default {
 }
 
 .product-image {
-  width: 48px;
-  height: 48px;
+  width: 60px;
+  height: 60px;
   border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
   transition: all 0.3s;
   background-color: #fff;
+  object-fit: cover;
 }
 
 .product-info-cell:hover .product-image {
-  transform: scale(1.1) rotate(3deg);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: scale(1.05);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
 }
 
 .product-details {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .product-name {
   font-weight: 600;
   color: #303133;
-  font-size: 14px;
+  font-size: 15px;
+}
+
+.product-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .product-category {
   font-size: 12px;
+  padding: 0 8px;
+  height: 20px;
+  line-height: 18px;
+  border-radius: 10px;
+  background-color: #f0f2f5;
+  color: #606266;
+}
+
+.product-id {
+  font-size: 12px;
   color: #909399;
-  background-color: #f5f7fa;
-  padding: 2px 8px;
-  border-radius: 4px;
-  display: inline-block;
+}
+
+.product-description {
+  font-size: 12px;
+  color: #606266;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.5;
 }
 
 /* 价格样式 */
@@ -577,37 +573,10 @@ export default {
 }
 
 /* 库存列样式优化 */
-.el-progress {
-  margin-bottom: 8px;
-}
-
-.el-progress-bar__outer {
-  border-radius: 12px;
-  background-color: #f5f7fa;
-  height: 8px !important;
-}
-
-.el-progress-bar__inner {
-  border-radius: 12px;
-  transition: all 0.3s ease;
-}
-
-.el-progress--success .el-progress-bar__inner {
-  background: linear-gradient(90deg, #67C23A, #95de64);
-}
-
-.el-progress--warning .el-progress-bar__inner {
-  background: linear-gradient(90deg, #E6A23C, #f3cc62);
-}
-
-.el-progress--exception .el-progress-bar__inner {
-  background: linear-gradient(90deg, #F56C6C, #ff9898);
-}
-
 .stock-text {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
-  padding: 3px 8px;
+  padding: 4px 12px;
   border-radius: 12px;
   display: inline-flex;
   align-items: center;
@@ -615,21 +584,9 @@ export default {
   transition: all 0.3s ease;
 }
 
-.stock-text::before {
-  content: '';
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-}
-
 .stock-text.success {
   color: #67C23A;
   background: rgba(103, 194, 58, 0.1);
-}
-
-.stock-text.success::before {
-  background-color: #67C23A;
 }
 
 .stock-text.warning {
@@ -637,17 +594,9 @@ export default {
   background: rgba(230, 162, 60, 0.1);
 }
 
-.stock-text.warning::before {
-  background-color: #E6A23C;
-}
-
 .stock-text.exception {
   color: #F56C6C;
   background: rgba(245, 108, 108, 0.1);
-}
-
-.stock-text.exception::before {
-  background-color: #F56C6C;
 }
 
 /* 状态列样式优化 */
@@ -967,5 +916,34 @@ export default {
 .el-dialog__footer {
   padding: 20px;
   border-top: 1px solid #ebeef5;
+}
+
+.image-preview {
+  width: 200px;
+  height: 200px;
+  border-radius: 4px;
+}
+
+.image-preview-popover {
+  padding: 10px;
+  background: #fff;
+  border-radius: 4px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+}
+
+.el-icon-picture-outline-round {
+  cursor: pointer;
+  font-size: 16px;
+  color: #909399;
+}
+
+.el-icon-picture-outline-round:hover {
+  color: #409EFF;
+}
+
+.price-column {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 </style> 

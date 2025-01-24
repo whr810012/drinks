@@ -21,8 +21,16 @@
             {{ formatDiscount(scope.row) }}
           </template>
         </el-table-column>
-        <el-table-column prop="startTime" label="开始时间" width="180"></el-table-column>
-        <el-table-column prop="endTime" label="结束时间" width="180"></el-table-column>
+        <el-table-column label="开始时间" width="180">
+          <template slot-scope="scope">
+            {{ formatDateTime(scope.row.start_time) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="结束时间" width="180">
+          <template slot-scope="scope">
+            {{ formatDateTime(scope.row.end_time) }}
+          </template>
+        </el-table-column>
         <el-table-column prop="status" label="状态" width="100">
           <template slot-scope="scope">
             <el-tag :type="scope.row.status === 'active' ? 'success' : 'info'">
@@ -49,7 +57,6 @@
           <el-select v-model="promotionForm.type" placeholder="请选择活动类型">
             <el-option label="折扣" value="discount"></el-option>
             <el-option label="满减" value="reduction"></el-option>
-            <el-option label="买赠" value="gift"></el-option>
           </el-select>
         </el-form-item>
         <el-form-item 
@@ -127,18 +134,24 @@ export default {
     this.fetchPromotions();
   },
   methods: {
+    formatDateTime(dateStr) {
+      if (!dateStr) return '-';
+      const date = new Date(dateStr);
+      return date.toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+    },
     async fetchPromotions() {
       try {
         this.loading = true;
         const response = await getPromotions();
         if (response.success) {
-          this.promotions = response.data.map(item => ({
-            ...item,
-            startTime: item.start_time,
-            endTime: item.end_time,
-            discountValue: item.discount_value,
-            minAmount: item.min_amount
-          }));
+          this.promotions = response.data;
         } else {
           this.$message.error(response.message || '获取促销活动列表失败');
         }
@@ -155,23 +168,22 @@ export default {
         reduction: 'success',
         gift: 'warning'
       };
-      return tags[type];
+      return tags[type] || 'info';
     },
     getPromotionTypeText(type) {
       const texts = {
         discount: '折扣',
         reduction: '满减',
-        gift: '买赠'
       };
       return texts[type];
     },
     formatDiscount(promotion) {
       if (promotion.type === 'discount') {
-        return `${(promotion.discountValue * 10).toFixed(1)}折`;
+        return `${(promotion.discount_value * 10).toFixed(1)}折`;
       } else if (promotion.type === 'reduction') {
-        return `满${promotion.minAmount}减${promotion.discountValue}`;
+        return `满${promotion.min_amount}减${promotion.discount_value}`;
       }
-      return '买赠活动';
+      return '-';
     },
     handleAdd() {
       this.dialogTitle = '添加活动';
@@ -191,9 +203,9 @@ export default {
         id: row.id,
         name: row.name,
         type: row.type,
-        discountValue: row.discount_value,
+        discountValue: row.type === 'discount' ? row.discount_value : row.discount_value,
         minAmount: row.min_amount,
-        timeRange: [row.start_time, row.end_time],
+        timeRange: [new Date(row.start_time), new Date(row.end_time)],
         status: row.status
       };
       this.dialogVisible = true;
@@ -229,8 +241,12 @@ export default {
               type: this.promotionForm.type,
               start_time: this.promotionForm.timeRange[0],
               end_time: this.promotionForm.timeRange[1],
-              discount_value: this.promotionForm.type === 'discount' ? this.promotionForm.discountValue : null,
-              min_amount: this.promotionForm.type === 'reduction' ? this.promotionForm.minAmount : null
+              status: this.promotionForm.status,
+              discount_value: this.promotionForm.type === 'discount' || this.promotionForm.type === 'reduction' 
+                ? this.promotionForm.discountValue 
+                : null,
+              min_amount: this.promotionForm.type === 'reduction' ? this.promotionForm.minAmount : null,
+              points_value: null
             };
 
             let response;

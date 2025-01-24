@@ -3,7 +3,7 @@ import request from '@/utils/request'
 // 获取用户列表
 export function getUsers() {
   return request({
-    url: '/users',
+    url: 'api/users',
     method: 'get'
   })
 }
@@ -11,7 +11,7 @@ export function getUsers() {
 // 添加用户
 export function addUser(data) {
   return request({
-    url: '/users',
+    url: 'api/users',
     method: 'post',
     data
   })
@@ -20,7 +20,7 @@ export function addUser(data) {
 // 编辑用户
 export function updateUser(id, data) {
   return request({
-    url: `/users/${id}`,
+    url: `api/users/${id}`,
     method: 'put',
     data
   })
@@ -29,7 +29,7 @@ export function updateUser(id, data) {
 // 更新用户状态
 export function updateUserStatus(id, status) {
   return request({
-    url: `/users/${id}/status`,
+    url: `api/users/${id}/status`,
     method: 'patch',
     data: { status }
   })

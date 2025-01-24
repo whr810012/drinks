@@ -2,7 +2,7 @@ import request from '@/utils/request'
 
 export function login(data) {
   return request({
-    url: '/api/login',
+    url: 'api/admin/login',
     method: 'post',
     data
   })
@@ -10,7 +10,7 @@ export function login(data) {
 
 export function register(data) {
   return request({
-    url: '/api/register',
+    url: 'api/admin/register',
     method: 'post',
     data
   })
@@ -18,7 +18,7 @@ export function register(data) {
 
 export function getProfile() {
   return request({
-    url: '/api/user/profile',
+    url: 'api/admin/profile',
     method: 'get'
   })
 } 

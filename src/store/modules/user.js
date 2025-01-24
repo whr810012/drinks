@@ -33,9 +33,11 @@ const actions = {
   async login({ commit }, userInfo) {
     try {
       const response = await login(userInfo)
-      const { token, user } = response.data
+      const { token, admin } = response.data
+      console.log('login response:', response);
+      
       commit('SET_TOKEN', token)
-      commit('SET_USER_INFO', user)
+      commit('SET_USER_INFO', admin)
       localStorage.setItem('token', token)
       return true
     } catch (error) {
@@ -47,10 +49,10 @@ const actions = {
   // 注册
   async register({ commit }, userInfo) {
     try {
-      await register(userInfo)
+      const response = await register(userInfo)
       return true
     } catch (error) {
-      commit('SET_ERROR', error.message)
+      commit('SET_ERROR', error.response?.data?.message || error.message)
       return false
     }
   },
@@ -59,6 +61,8 @@ const actions = {
   async getProfile({ commit }) {
     try {
       const response = await getProfile()
+      console.log('getProfile response:', response);
+      
       commit('SET_USER_INFO', response.data)
       return true
     } catch (error) {

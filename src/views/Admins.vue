@@ -1,60 +1,5 @@
 <template>
   <div class="admins-container">
-    <!-- 顶部统计卡片 -->
-    <el-row :gutter="20" class="dashboard-cards">
-      <el-col :span="6">
-        <el-card class="data-card total-admins" shadow="hover">
-          <div class="data-card-content">
-            <div class="icon-wrapper">
-              <i class="el-icon-user"></i>
-            </div>
-            <div class="data-info">
-              <div class="data-title">管理员总数</div>
-              <div class="data-value">{{ totalAdmins }}</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="data-card active-admins" shadow="hover">
-          <div class="data-card-content">
-            <div class="icon-wrapper">
-              <i class="el-icon-user-solid"></i>
-            </div>
-            <div class="data-info">
-              <div class="data-title">在线管理员</div>
-              <div class="data-value">{{ activeAdmins }}</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="data-card disabled-admins" shadow="hover">
-          <div class="data-card-content">
-            <div class="icon-wrapper">
-              <i class="el-icon-warning"></i>
-            </div>
-            <div class="data-info">
-              <div class="data-title">已禁用管理员</div>
-              <div class="data-value">{{ disabledAdmins }}</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="data-card super-admins" shadow="hover">
-          <div class="data-card-content">
-            <div class="icon-wrapper">
-              <i class="el-icon-s-custom"></i>
-            </div>
-            <div class="data-info">
-              <div class="data-title">超级管理员</div>
-              <div class="data-value">{{ superAdmins }}</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
 
     <!-- 管理员列表 -->
     <el-card class="admins-table-card">
@@ -64,7 +9,12 @@
           <span class="table-subtitle">共 {{ totalAdmins }} 个管理员</span>
         </div>
         <div class="header-right">
-          <el-button type="primary" icon="el-icon-plus" @click="handleAdd">
+          <el-button 
+            v-if="isSuperAdmin"
+            type="primary" 
+            icon="el-icon-plus" 
+            @click="handleAdd"
+          >
             新增管理员
           </el-button>
         </div>
@@ -80,12 +30,20 @@
             class="search-input"
             clearable
           />
-          <el-select v-model="roleFilter" placeholder="角色" class="filter-select">
+          <el-select 
+            v-model="roleFilter" 
+            placeholder="角色" 
+            class="filter-select"
+          >
             <el-option label="全部" value="" />
             <el-option label="超级管理员" value="super" />
             <el-option label="普通管理员" value="normal" />
           </el-select>
-          <el-select v-model="statusFilter" placeholder="状态" class="filter-select">
+          <el-select 
+            v-model="statusFilter" 
+            placeholder="状态" 
+            class="filter-select"
+          >
             <el-option label="全部" value="" />
             <el-option label="正常" value="active" />
             <el-option label="已禁用" value="disabled" />
@@ -114,7 +72,7 @@
               </el-avatar>
               <div class="admin-details">
                 <span class="admin-name">{{ scope.row.name }}</span>
-                <span class="admin-account">{{ scope.row.account }}</span>
+                <span class="admin-account">{{ scope.row.username }}</span>
               </div>
             </div>
           </template>
@@ -123,11 +81,11 @@
         <el-table-column label="角色" width="120">
           <template slot-scope="scope">
             <el-tag
-              :type="scope.row.role === 'super' ? 'danger' : 'primary'"
+              :type="scope.row.role === 'super_admin' ? 'danger' : 'primary'"
               effect="plain"
               size="small"
             >
-              {{ scope.row.role === 'super' ? '超级管理员' : '普通管理员' }}
+              {{ scope.row.role === 'super_admin' ? '超级管理员' : '普通管理员' }}
             </el-tag>
           </template>
         </el-table-column>
@@ -136,24 +94,16 @@
         
         <el-table-column prop="email" label="邮箱" min-width="200" />
 
-        <el-table-column label="最后登录" width="180">
-          <template slot-scope="scope">
-            <div class="login-info">
-              <i class="el-icon-time"></i>
-              <span>{{ formatDate(scope.row.lastLogin) }}</span>
-            </div>
-          </template>
-        </el-table-column>
 
         <el-table-column label="状态" width="100">
           <template slot-scope="scope">
             <el-switch
               v-model="scope.row.status"
-              :active-value="'active'"
-              :inactive-value="'disabled'"
+              :active-value="1"
+              :inactive-value="0"
               active-color="#13ce66"
               inactive-color="#ff4949"
-              :disabled="scope.row.role === 'super'"
+              :disabled="scope.row.role === 'super_admin'"
               @change="(val) => handleStatusChange(scope.row, val)"
             />
           </template>
@@ -167,12 +117,13 @@
                 type="text"
                 size="small"
                 @click="handleEdit(scope.row)"
+                v-if="isSuperAdmin || scope.row.id === userInfo.id"
               >
                 <i class="el-icon-edit"></i>
                 编辑
               </el-button>
               <el-button
-                v-if="scope.row.role !== 'super'"
+                v-if="isSuperAdmin && scope.row.role !== 'super_admin'"
                 class="table-button danger"
                 type="text"
                 size="small"
@@ -227,7 +178,11 @@
           <el-input v-model="adminForm.confirmPassword" type="password" placeholder="请确认密码" />
         </el-form-item>
         <el-form-item label="角色" prop="role">
-          <el-select v-model="adminForm.role" placeholder="请选择角色">
+          <el-select 
+            v-model="adminForm.role" 
+            placeholder="请选择角色"
+            :disabled="dialogType === 'edit'"
+          >
             <el-option label="超级管理员" value="super" />
             <el-option label="普通管理员" value="normal" />
           </el-select>
@@ -529,6 +484,7 @@
 
 <script>
 import { getAdminList, createAdmin, updateAdmin, deleteAdmin, updateAdminStatus } from '@/api/admin'
+import { mapGetters } from 'vuex'
 
 export default {
   name: 'Admins',
@@ -619,6 +575,15 @@ export default {
     }
   },
   computed: {
+    ...mapGetters('user', ['userInfo']),
+    
+    // 是否是超级管理员
+    isSuperAdmin() {
+      console.log('userInfo:', this.userInfo);
+      
+      return this.userInfo.role === 'super_admin'
+    },
+
     // 统计数据
     totalAdmins() {
       return this.admins.length
@@ -634,14 +599,18 @@ export default {
     },
     // 过滤后的管理员列表
     filteredAdmins() {
-      return this.admins.filter(admin => {
+      let filteredList = this.admins.filter(admin => {
         const matchQuery = !this.searchQuery || 
           admin.name.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
-          admin.account.toLowerCase().includes(this.searchQuery.toLowerCase())
-        const matchRole = !this.roleFilter || admin.role === this.roleFilter
-        const matchStatus = !this.statusFilter || admin.status === this.statusFilter
+          admin.username.toLowerCase().includes(this.searchQuery.toLowerCase())
+        const matchRole = !this.roleFilter || 
+          (this.roleFilter === 'super' ? admin.role === 'super_admin' : admin.role === 'normal_admin')
+        const matchStatus = !this.statusFilter || 
+          (this.statusFilter === 'active' ? admin.status === 1 : admin.status === 0)
         return matchQuery && matchRole && matchStatus
       })
+
+      return filteredList
     }
   },
   methods: {
@@ -650,14 +619,10 @@ export default {
       this.loading = true
       try {
         const response = await getAdminList()
-        if (response.data.success) {
-          this.admins = response.data.data.map(admin => ({
-            ...admin,
-            account: admin.username,
-            role: admin.role === 'super_admin' ? 'super' : 'normal'
-          }))
+        if (response.success) {
+          this.admins = response.data
         } else {
-          throw new Error(response.data.message)
+          throw new Error(response.message)
         }
       } catch (error) {
         console.error('获取管理员列表失败:', error)
@@ -678,6 +643,10 @@ export default {
 
     // 新增管理员
     handleAdd() {
+      if (!this.isSuperAdmin) {
+        this.$message.warning('只有超级管理员可以新增管理员')
+        return
+      }
       this.dialogType = 'add'
       this.dialogVisible = true
       this.resetForm()
@@ -685,20 +654,32 @@ export default {
 
     // 编辑管理员
     handleEdit(row) {
+      if (!this.isSuperAdmin && row.id !== this.userInfo.id) {
+        this.$message.warning('您只能修改自己的信息')
+        return
+      }
       this.dialogType = 'edit'
-      this.adminForm = { ...row }
+      this.adminForm = { 
+        ...row,
+        account: row.username,
+        role: row.role === 'super_admin' ? 'super' : 'normal'
+      }
       this.dialogVisible = true
     },
 
     // 删除管理员
     handleDelete(row) {
+      if (!this.isSuperAdmin) {
+        this.$message.warning('只有超级管理员可以删除管理员')
+        return
+      }
       this.$confirm('确认删除该管理员吗？', '提示', {
         type: 'warning'
       }).then(async () => {
         try {
           const response = await deleteAdmin(row.id)
-          if (!response.data.success) {
-            throw new Error(response.data.message)
+          if (!response.success) {
+            throw new Error(response.message)
           }
           this.$message.success('删除成功')
           this.refreshAdmins()
@@ -711,16 +692,21 @@ export default {
 
     // 更改管理员状态
     async handleStatusChange(row, status) {
+      if (!this.isSuperAdmin) {
+        this.$message.warning('只有超级管理员可以修改管理员状态')
+        row.status = row.status === 1 ? 0 : 1 // 恢复状态
+        return
+      }
       try {
         const response = await updateAdminStatus(row.id, status)
-        if (!response.data.success) {
-          throw new Error(response.data.message)
+        if (!response.success) {
+          throw new Error(response.message)
         }
         this.$message.success('状态更新成功')
       } catch (error) {
         console.error('更新状态失败:', error)
         this.$message.error(error.message || '更新状态失败')
-        row.status = status === 'active' ? 'disabled' : 'active' // 恢复状态
+        row.status = status === 1 ? 0 : 1 // 恢复状态
       }
     },
 
@@ -733,22 +719,23 @@ export default {
             const adminData = {
               username: this.adminForm.account,
               name: this.adminForm.name,
-              role: this.adminForm.role === 'super' ? 'super_admin' : 'normal_admin',
               phone: this.adminForm.phone,
-              email: this.adminForm.email
+              email: this.adminForm.email,
+              status: 1
             }
 
             if (this.dialogType === 'add') {
               adminData.password = this.adminForm.password
+              adminData.role = this.adminForm.role === 'super' ? 'super_admin' : 'normal_admin'
               const response = await createAdmin(adminData)
-              if (!response.data.success) {
-                throw new Error(response.data.message)
+              if (!response.success) {
+                throw new Error(response.message)
               }
               this.$message.success('新增成功')
             } else {
               const response = await updateAdmin(this.adminForm.id, adminData)
-              if (!response.data.success) {
-                throw new Error(response.data.message)
+              if (!response.success) {
+                throw new Error(response.message)
               }
               this.$message.success('更新成功')
             }
@@ -781,7 +768,15 @@ export default {
 
     // 格式化日期
     formatDate(date) {
-      return new Date(date).toLocaleString()
+      if (!date) return '从未登录'
+      return new Date(date).toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      })
     }
   },
   created() {

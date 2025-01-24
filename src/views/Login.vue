@@ -63,25 +63,47 @@ export default {
     }
   },
   computed: {
-    ...mapGetters(['error'])
+    ...mapGetters('user', ['error'])
   },
   methods: {
-    ...mapActions(['login']),
+    ...mapActions('user', ['login', 'setUserInfo']),
     async handleLogin() {
+      if (this.loading) return // 防止重复提交
+      
       try {
+        console.log('开始登录流程')
         const valid = await this.$refs.loginForm.validate()
+        console.log('表单验证结果:', valid)
         if (valid) {
           this.loading = true
-          const success = await this.login(this.loginForm)
-          if (success) {
+          console.log('准备调用登录接口，参数:', this.loginForm)
+          const loginResult = await this.login(this.loginForm)
+          console.log('登录接口原始返回:', loginResult)
+          
+          // 如果返回true说明登录成功，但数据在store中
+          if (loginResult === true) {
             this.$message.success('登录成功')
-            this.$router.push('/users')
+            this.$router.replace('/users')
+            return
+          }
+          
+          // 处理返回完整响应对象的情况
+          if (loginResult && loginResult.success) {
+            const userInfo = loginResult.data
+            console.log('用户信息:', userInfo)
+            
+            // 存储用户信息和token
+            await this.setUserInfo(userInfo)
+            
+            this.$message.success(loginResult.message)
+            this.$router.replace('/users')
           } else {
-            this.$message.error(this.error || '登录失败')
+            throw new Error(loginResult?.message || '登录失败')
           }
         }
       } catch (error) {
-        this.$message.error('表单验证失败')
+        console.error('登录过程出错:', error)
+        this.$message.error(error.message || '登录失败，请稍后重试')
       } finally {
         this.loading = false
       }

@@ -4,10 +4,8 @@ import router from '@/router'
 
 // 创建axios实例
 const service = axios.create({
-  baseURL: process.env.VUE_APP_API_URL || 'http://localhost:3000/api', // 根据环境变量配置baseURL
-  timeout: 15000, // 增加超时时间到15秒
-  retry: 3, // 请求重试次数
-  retryDelay: 1000 // 请求重试间隔
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000', // 使用 Vite 的环境变量方式
+  timeout: 15000
 })
 
 // request拦截器
@@ -16,7 +14,9 @@ service.interceptors.request.use(
     // 在发送请求之前做些什么
     const token = localStorage.getItem('token')
     if (token) {
-      config.headers['Authorization'] = 'Bearer ' + token
+      config.headers['Authorization'] = token
+    } else {
+      console.log('未找到token，请求将不包含Authorization头')
     }
     return config
   },
@@ -29,18 +29,9 @@ service.interceptors.request.use(
 // response拦截器
 service.interceptors.response.use(
   response => {
-    return response
+    return response.data
   },
-  async error => {
-    if (error.config && error.config.retry) {
-      error.config.__retryCount = error.config.__retryCount || 0
-      if (error.config.__retryCount < error.config.retry) {
-        error.config.__retryCount++
-        await new Promise(resolve => setTimeout(resolve, error.config.retryDelay))
-        return service(error.config)
-      }
-    }
-
+  error => {
     if (!error.response) {
       Message({
         message: '网络错误，请检查您的网络连接',

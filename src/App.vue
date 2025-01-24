@@ -54,7 +54,7 @@
                 <el-dropdown trigger="click">
                   <span class="user-dropdown-link">
                     <i class="el-icon-user-solid"></i>
-                    {{ currentUser.username }}
+                    {{ userInfo ? userInfo.username : '未登录' }}
                     <i class="el-icon-caret-bottom"></i>
                   </span>
                   <el-dropdown-menu slot="dropdown">
@@ -84,13 +84,19 @@ import { mapGetters, mapActions } from 'vuex'
 export default {
   name: 'App',
   computed: {
-    ...mapGetters(['currentUser']),
+    ...mapGetters('user', ['userInfo']),
     isAuthRoute() {
       return ['/login', '/register'].includes(this.$route.path)
     }
   },
+  created() {
+    // 如果有token，获取用户信息
+    if (localStorage.getItem('token')) {
+      this.$store.dispatch('user/getProfile')
+    }
+  },
   methods: {
-    ...mapActions(['logout']),
+    ...mapActions('user', ['logout']),
     async handleLogout() {
       await this.logout()
       this.$router.push('/login')

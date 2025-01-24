@@ -11,6 +11,14 @@
             :disabled="loading"
           ></el-input>
         </el-form-item>
+        <el-form-item prop="name">
+          <el-input
+            v-model="registerForm.name"
+            placeholder="姓名"
+            prefix-icon="el-icon-user"
+            :disabled="loading"
+          ></el-input>
+        </el-form-item>
         <el-form-item prop="password">
           <el-input
             v-model="registerForm.password"
@@ -69,7 +77,8 @@ export default {
       registerForm: {
         username: '',
         password: '',
-        confirmPassword: ''
+        confirmPassword: '',
+        name: ''
       },
       loading: false,
       rules: {
@@ -83,33 +92,37 @@ export default {
         ],
         confirmPassword: [
           { required: true, validator: validatePass2, trigger: 'blur' }
+        ],
+        name: [
+          { required: true, message: '请输入姓名', trigger: 'blur' }
         ]
       }
     }
   },
   computed: {
-    ...mapGetters(['error'])
+    ...mapGetters('user', ['error'])
   },
   methods: {
-    ...mapActions(['register']),
+    ...mapActions('user', ['register']),
     async handleRegister() {
       try {
         const valid = await this.$refs.registerForm.validate()
         if (valid) {
           this.loading = true
-          const { username, password } = this.registerForm
-          const success = await this.register({ username, password })
+          const { username, password, name } = this.registerForm
+          const success = await this.register({ username, password, name })
           if (success) {
             this.$message.success('注册成功')
-            this.$router.push('/users')
-          } else {
-            this.$message.error(this.error || '注册失败')
+            this.$router.push('/login')
           }
         }
       } catch (error) {
-        this.$message.error('表单验证失败')
+        console.error('注册错误:', error)
       } finally {
         this.loading = false
+        if (!this.loading && this.error) {
+          this.$message.error(this.error)
+        }
       }
     }
   }

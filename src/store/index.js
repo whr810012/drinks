@@ -1,21 +1,19 @@
 import Vue from 'vue'
 import Vuex from 'vuex'
+import user from './modules/user'
 
 Vue.use(Vuex)
 
 export default new Vuex.Store({
+  modules: {
+    user
+  },
   state: {
-    users: [],
     products: [],
     orders: [],
-    promotions: [],
-    user: JSON.parse(localStorage.getItem('user')) || null,
-    error: null
+    promotions: []
   },
   mutations: {
-    SET_USERS(state, users) {
-      state.users = users
-    },
     SET_PRODUCTS(state, products) {
       state.products = products
     },
@@ -24,108 +22,9 @@ export default new Vuex.Store({
     },
     SET_PROMOTIONS(state, promotions) {
       state.promotions = promotions
-    },
-    SET_USER(state, user) {
-      state.user = user
-      if (user) {
-        localStorage.setItem('user', JSON.stringify(user))
-      } else {
-        localStorage.removeItem('user')
-      }
-    },
-    SET_ERROR(state, error) {
-      state.error = error
     }
   },
   actions: {
-    // 用户认证相关的actions
-    async login({ commit }, credentials) {
-      try {
-        commit('SET_ERROR', null)
-        // 这里模拟API调用，实际项目中需要替换为真实的API请求
-        const response = await new Promise((resolve) => {
-          setTimeout(() => {
-            if (credentials.username === 'admin' && credentials.password === 'admin123') {
-              resolve({
-                success: true,
-                user: {
-                  id: 1,
-                  username: credentials.username,
-                  role: 'admin'
-                }
-              })
-            } else {
-              resolve({
-                success: false,
-                message: '用户名或密码错误'
-              })
-            }
-          }, 1000)
-        })
-
-        if (response.success) {
-          commit('SET_USER', response.user)
-          return true
-        } else {
-          commit('SET_ERROR', response.message)
-          return false
-        }
-      } catch (error) {
-        commit('SET_ERROR', '登录失败，请稍后重试')
-        return false
-      }
-    },
-
-    async register({ commit }, userData) {
-      try {
-        commit('SET_ERROR', null)
-        // 这里模拟API调用，实际项目中需要替换为真实的API请求
-        const response = await new Promise((resolve) => {
-          setTimeout(() => {
-            if (userData.username === 'admin') {
-              resolve({
-                success: false,
-                message: '用户名已存在'
-              })
-            } else {
-              resolve({
-                success: true,
-                user: {
-                  id: Date.now(),
-                  username: userData.username,
-                  role: 'user'
-                }
-              })
-            }
-          }, 1000)
-        })
-
-        if (response.success) {
-          commit('SET_USER', response.user)
-          return true
-        } else {
-          commit('SET_ERROR', response.message)
-          return false
-        }
-      } catch (error) {
-        commit('SET_ERROR', '注册失败，请稍后重试')
-        return false
-      }
-    },
-
-    logout({ commit }) {
-      commit('SET_USER', null)
-    },
-
-    // 其他现有的actions
-    async fetchUsers({ commit }) {
-      // 模拟API调用
-      const users = [
-        { id: 1, username: 'user1', email: 'user1@example.com', status: 'active' },
-        { id: 2, username: 'user2', email: 'user2@example.com', status: 'inactive' }
-      ]
-      commit('SET_USERS', users)
-    },
     async fetchProducts({ commit }) {
       // 模拟API调用
       const products = [
@@ -152,12 +51,8 @@ export default new Vuex.Store({
     }
   },
   getters: {
-    getUsers: state => state.users,
     getProducts: state => state.products,
     getOrders: state => state.orders,
-    getPromotions: state => state.promotions,
-    isAuthenticated: state => !!state.user,
-    currentUser: state => state.user,
-    error: state => state.error
+    getPromotions: state => state.promotions
   }
 }) 
